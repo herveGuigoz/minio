@@ -1,0 +1,77 @@
+version: '3.2'
+
+services:
+  traefik:
+    image: traefik:v2.9
+    container_name: traefik
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - $PWD/traefik:/etc/traefik
+      - $PWD/traefik/traefik.log:/traefik.log
+      - $PWD/traefik/acme.json:/acme.json
+    networks:
+      - traefik_public
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+      - target: 8080
+        published: 8080
+        protocol: tcp
+      - target: 443
+        published: 443
+        protocol: tcp
+    labels: 
+      traefik.docker.network: traefik_public
+      traefik.http.routers.api.entrypoints: https
+      # Dashboard available at `$DOMAIN_NAME/dashboard`
+      # traefik.http.routers.dashboard.rule: Host(`traefik.${DOMAIN_NAME}`)
+      # traefik.http.routers.dashboard.service: api@internal
+      # traefik.http.routers.dashboard.tls: true
+      # traefik.http.routers.dashboard.tls.certresolver: main
+      # traefik.http.routers.dashboard.tls.domains[0].main: ${DOMAIN_NAME}
+      # traefik.http.routers.dashboard.tls.domains[0].sans: "*.${DOMAIN_NAME}"
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    volumes:
+     - $PWD/minio:/data
+    networks:
+      - traefik_public
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-access_key}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-secret_key}
+      # Redirect web browsers to this URL when they hit the API directly.
+      MINIO_BROWSER_REDIRECT_URL: https://minio-console.${DOMAIN_NAME}
+      MINIO_SERVER_URL: https://minio.${DOMAIN_NAME}
+    command: server --console-address ":9001" /data
+    labels:
+      traefik.enable: true
+      traefik.docker.network: traefik_public
+      traefik.http.middlewares.redirect-https.redirectScheme.scheme: https
+      traefik.http.middlewares.redirect-https.redirectScheme.permanent: true
+      # MINIO API
+      traefik.http.services.minio.loadbalancer.server.port: 9000
+      traefik.http.routers.minio-http.rule: Host(`minio.${DOMAIN_NAME}`)
+      traefik.http.routers.minio-http.entrypoints: http
+      traefik.http.routers.minio-http.middlewares: redirect-https
+      traefik.http.routers.minio-http.service: minio
+      traefik.http.routers.minio-https.rule: Host(`minio.${DOMAIN_NAME}`)
+      traefik.http.routers.minio-https.entrypoints: https
+      traefik.http.routers.minio-https.service: minio
+      # MINIO CONSOLE
+      traefik.http.services.minio-console.loadbalancer.server.port: 9001
+      traefik.http.routers.minio-console-https.rule: Host(`minio-console.${DOMAIN_NAME}`)
+      traefik.http.routers.minio-console-https.entrypoints: https
+      traefik.http.routers.minio-console-https.service: minio-console
+      traefik.http.routers.minio-console-http.rule: Host(`minio-console.${DOMAIN_NAME}`)
+      traefik.http.routers.minio-console-http.entrypoints: http
+      traefik.http.routers.minio-console-http.middlewares: redirect-https
+      traefik.http.routers.minio-console-http.service: minio-console
+
+networks:
+  traefik_public:
+    name: traefik_public
+    external: true

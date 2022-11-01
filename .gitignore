@@ -1,0 +1,5 @@
+# minio
+minio/*
+
+# misc
+.DS_Store
