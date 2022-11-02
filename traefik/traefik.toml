@@ -12,9 +12,12 @@
 [entryPoints]
   [entryPoints.http]
     address = ":80"
-    [entryPoints.http.http.redirections.entryPoint]
-      to = "https"
-      scheme = "https"
+
+    [entryPoints.http.http]
+      [entryPoints.http.http.redirections]
+        [entryPoints.http.http.redirections.entryPoint]
+          to = "https"
+          scheme = "https"
 
   [entryPoints.https]
     address = ":443"
@@ -26,7 +29,7 @@
 
   # Email address used for registration. Required
   #
-  email = "herve.guigoz@gmail.com"
+  email = "adress@mail.com"
 
   # File or key used for certificates storage. Required
   #
@@ -127,7 +130,7 @@
 # Enable API and dashboard
 [api]
   dashboard = true
-  insecure = true
+  insecure = false
 
 ################################################################
 # Docker configuration backend
@@ -135,6 +138,7 @@
 
 # Enable Docker configuration backend
 [providers.docker]
+  network = "traefik_public"
 
   # Docker server endpoint. Can be a tcp or a unix socket endpoint.
   #
